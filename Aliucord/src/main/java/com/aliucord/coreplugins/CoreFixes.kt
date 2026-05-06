@@ -29,6 +29,7 @@ import com.discord.api.permission.Permission
 import com.discord.models.domain.emoji.ModelEmojiCustom
 import com.discord.models.domain.emoji.ModelEmojiUnicode
 import com.discord.rtcconnection.socket.io.Payloads.Protocol.ProtocolInfo
+import com.discord.stores.StoreReadStates
 import com.discord.stores.StoreSlowMode
 import com.discord.stores.StoreStream
 import com.discord.utilities.drawable.DrawableCompat
@@ -91,6 +92,7 @@ internal class CoreFixes : CorePlugin(Manifest("CoreFixes")) {
         fixClock()
         fixMissingAutocomplete()
         fixBioHeightLimit()
+        fixUnreadForumChannels()
     }
 
     private fun fixStockEmojis() = tryPatch("Fix built-in emojis") {
@@ -421,7 +423,27 @@ internal class CoreFixes : CorePlugin(Manifest("CoreFixes")) {
         }
     }
 
-
+    private fun fixUnreadForumChannels() = tryPatch("Fix unread forum channels") {
+        patcher.before<StoreReadStates>("computeUnreadIds",
+            Map::class.java,
+            Map::class.java,
+            Map::class.java,
+            Map::class.java,
+            Map::class.java,
+            Map::class.java,
+            Long::class.javaPrimitiveType!!,
+            Map::class.java,
+            Map::class.java,
+        )
+        { param ->
+            // Make unread channel computer only consider joined forum posts
+            val forumThreadsMap = param.args[7] as Map<Long, Channel>
+            val joinedForumThreadsMap = forumThreadsMap.filter {
+                StoreStream.Companion!!.threadsJoined.getJoinedThread(it.value.id) != null
+            }
+            param.args[7] = joinedForumThreadsMap
+        }
+    }
     private fun tryPatch(label: String, block: () -> Unit) {
         try {
             block()
