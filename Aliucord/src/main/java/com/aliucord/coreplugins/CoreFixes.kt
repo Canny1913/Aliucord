@@ -436,7 +436,7 @@ internal class CoreFixes : CorePlugin(Manifest("CoreFixes")) {
             Map::class.java,
         )
         { param ->
-            // Make unread channel computer only consider joined forum posts
+            // Only check joined forum posts instead of all public posts
             val forumThreadsMap = param.args[7] as Map<Long, Channel>
             val joinedForumThreadsMap = forumThreadsMap.filter {
                 StoreStream.Companion!!.threadsJoined.getJoinedThread(it.value.id) != null
