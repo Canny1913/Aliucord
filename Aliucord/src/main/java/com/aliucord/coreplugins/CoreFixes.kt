@@ -6,9 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
-import android.os.Bundle
-import android.os.SystemClock
+import android.os.*
 import android.view.View
 import android.view.WindowInsetsAnimation
 import android.widget.TextView
@@ -23,6 +21,7 @@ import com.aliucord.utils.ReflectUtils
 import com.aliucord.utils.ViewUtils.findViewById
 import com.aliucord.utils.accessField
 import com.aliucord.wrappers.ChannelWrapper.Companion.id
+import com.aliucord.wrappers.GuildRoleWrapper.Companion.name
 import com.aliucord.wrappers.embeds.MessageEmbedWrapper
 import com.discord.api.channel.Channel
 import com.discord.api.message.embed.EmbedField
@@ -42,6 +41,7 @@ import com.discord.utilities.time.ClockFactory
 import com.discord.utilities.time.NtpClock
 import com.discord.widgets.channels.list.*
 import com.discord.widgets.chat.input.SmoothKeyboardReactionHelper
+import com.discord.widgets.chat.input.autocomplete.*
 import com.discord.widgets.chat.list.actions.`WidgetChatListActions$binding$2`
 import com.discord.widgets.chat.list.adapter.WidgetChatListAdapterItemAutoModSystemMessageEmbed
 import com.discord.widgets.chat.list.adapter.WidgetChatListAdapterItemThreadDraftForm
@@ -85,6 +85,7 @@ internal class CoreFixes : CorePlugin(Manifest("CoreFixes")) {
         fixSlowmode()
         fixExternalLinks()
         fixClock()
+        fixMissingAutocomplete()
     }
 
     private fun fixStockEmojis() = tryPatch("Fix built-in emojis") {
@@ -343,7 +344,7 @@ internal class CoreFixes : CorePlugin(Manifest("CoreFixes")) {
     }
 
     // Forces app links to always open in a separate window, except for custom tab. This addresses an issue where some links are opened internally on certain ROMs
-    private fun fixExternalLinks() = tryPatch("Fixes app links not being handled by their respective app") {
+    private fun fixExternalLinks() = tryPatch("Fix app links not being handled by their respective app") {
         @Suppress("UnusedReceiverParameter")
         fun Activity.handleIntent(param: MethodHookParam) {
             val intent = param.args[0] as? Intent ?: return
@@ -365,6 +366,35 @@ internal class CoreFixes : CorePlugin(Manifest("CoreFixes")) {
         // SAFETY: This is safe to run directly since ClockFactory initializes before Aliucord core initializes.
         ReflectUtils.setField(ClockFactory.INSTANCE, "ntpClock", NtpClock(AndroidClock()))
     }
+
+    private fun fixMissingAutocomplete() = tryPatch("Fix missing autocomplete entries which have the same name") {
+        // Replaces the comparator used to add entries to the autocomplete set.
+        // Fixes an issue where entries with the same name won't show up apart from the first one
+        // e.g. setting your nickname the same as someone else
+        patcher.before<AutocompletableComparator>(
+            "compare",
+            Autocompletable::class.java,
+            Autocompletable::class.java,
+        ) { (param, p1: Autocompletable, p2: Autocompletable) ->
+            // For roles
+            if (p1 is RoleAutocompletable && p2 is RoleAutocompletable) {
+                param.result = compareValuesBy(
+                    p1, p2,
+                    { it.role.name }, // Compare by name first
+                    { it.role.id }, // Then compare by id
+                )
+            // For users
+            } else if (p1 is UserAutocompletable && p2 is UserAutocompletable) {
+                param.result = compareValuesBy(
+                    p1, p2,
+                    { it.nickname ?: it.user.username }, // Compare by nickname/display name first
+                    { it.user.username }, // Then compare by username
+                    { it.user.discriminator }, // Then compare by discrim
+                )
+            }
+        }
+    }
+
 
     private fun tryPatch(label: String, block: () -> Unit) {
         try {
