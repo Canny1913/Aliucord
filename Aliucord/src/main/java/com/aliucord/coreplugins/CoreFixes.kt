@@ -37,6 +37,7 @@ import com.discord.databinding.WidgetHomeBinding
 import com.discord.models.domain.emoji.ModelEmojiCustom
 import com.discord.models.domain.emoji.ModelEmojiUnicode
 import com.discord.rtcconnection.socket.io.Payloads.Protocol.ProtocolInfo
+import com.discord.stores.StoreReadStates
 import com.discord.stores.StoreSlowMode
 import com.discord.stores.StoreStream
 import com.discord.stores.updates.ObservationDeck
@@ -116,6 +117,7 @@ internal class CoreFixes : CorePlugin(Manifest("CoreFixes")) {
         fixClock()
         fixMissingAutocomplete()
         fixBioHeightLimit()
+        fixUnreadForumChannels()
         fixMemoryLeak()
     }
 
@@ -463,6 +465,27 @@ internal class CoreFixes : CorePlugin(Manifest("CoreFixes")) {
         }
     }
 
+    private fun fixUnreadForumChannels() = tryPatch("Fix unread forum channels") {
+        patcher.before<StoreReadStates>("computeUnreadIds",
+            Map::class.java,
+            Map::class.java,
+            Map::class.java,
+            Map::class.java,
+            Map::class.java,
+            Map::class.java,
+            Long::class.javaPrimitiveType!!,
+            Map::class.java,
+            Map::class.java,
+        )
+        { param ->
+            // Only check joined forum posts instead of all public posts
+            val forumThreadsMap = param.args[7] as Map<Long, Channel>
+            val joinedForumThreadsMap = forumThreadsMap.filter {
+                StoreStream.Companion!!.threadsJoined.getJoinedThread(it.value.id) != null
+            }
+            param.args[7] = joinedForumThreadsMap
+        }
+    }
     private fun fixMemoryLeak() = tryPatch("Fix base memory leak") {
         // Patch some fragment binding onDestroy callbacks to ensure backend stuff doesn't outlive the fragment itself.
         patcher.after<WidgetForumPostStatus> {
