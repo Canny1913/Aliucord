@@ -119,21 +119,21 @@ internal class CoreFixes : CorePlugin(Manifest("CoreFixes")) {
         fixMemoryLeak()
     }
 
-    val WidgetChatList.binding by accessField<FragmentViewBindingDelegate<WidgetChatListBinding>?>($$"binding$delegate")
-    val WidgetHome.binding by accessField<FragmentViewBindingDelegate<WidgetHomeBinding>?>($$"binding$delegate")
-    val WidgetForumPostStatus.binding by accessField<FragmentViewBindingDelegate<WidgetForumPostStatusBinding>?>($$"binding$delegate")
+    private val WidgetChatList.binding by accessField<FragmentViewBindingDelegate<WidgetChatListBinding>?>($$"binding$delegate")
+    private val WidgetHome.binding by accessField<FragmentViewBindingDelegate<WidgetHomeBinding>?>($$"binding$delegate")
+    private val WidgetForumPostStatus.binding by accessField<FragmentViewBindingDelegate<WidgetForumPostStatusBinding>?>($$"binding$delegate")
 
-    var WidgetChatListAdapterEventsHandler.UserReactionHandler.host by accessField<AppFragment?>()
-    val WidgetChatListAdapterEventsHandler.UserReactionHandler.requestStream by accessField<Subject<*, *>>()
-    var WidgetForumPostStatusViewModel.appFragment by accessField<AppFragment?>()
+    private var WidgetChatListAdapterEventsHandler.UserReactionHandler.host by accessField<AppFragment?>()
+    private val WidgetChatListAdapterEventsHandler.UserReactionHandler.requestStream by accessField<Subject<*, *>>()
+    private var WidgetForumPostStatusViewModel.appFragment by accessField<AppFragment?>()
 
-    var WidgetExpressionTray.emojiPickerFragment by accessField<WidgetEmojiPicker>()
-    val WidgetExpressionTray.emojiPickerListener by accessField<EmojiPickerListener?>()
-    val WidgetExpressionTray.onBackspacePressedListener by accessField<OnBackspacePressedListener>()
+    private var WidgetExpressionTray.emojiPickerFragment by accessField<WidgetEmojiPicker>()
+    private val WidgetExpressionTray.emojiPickerListener by accessField<EmojiPickerListener?>()
+    private val WidgetExpressionTray.onBackspacePressedListener by accessField<OnBackspacePressedListener>()
 
-    var <T: ViewBinding> FragmentViewBindingDelegate<T>.onBindingDestroy by accessField<(T) -> Unit>("onViewBindingDestroy")
+    private var <T: ViewBinding> FragmentViewBindingDelegate<T>.onBindingDestroy by accessField<(T) -> Unit>("onViewBindingDestroy")
 
-    val expressionTrayPickerId = Utils.getResId("expression_tray_emoji_picker_content", "id")
+    private val expressionTrayPickerId = Utils.getResId("expression_tray_emoji_picker_content", "id")
 
     private fun fixStockEmojis() = tryPatch("Fix built-in emojis") {
         // Patch to repair built-in emotes is needed because installer doesn't recompile resources,
@@ -463,7 +463,7 @@ internal class CoreFixes : CorePlugin(Manifest("CoreFixes")) {
         }
     }
 
-    fun fixMemoryLeak() = tryPatch("Fix base memory leak") {
+    private fun fixMemoryLeak() = tryPatch("Fix base memory leak") {
         // Patch some fragment binding onDestroy callbacks to ensure backend stuff doesn't outlive the fragment itself.
         patcher.after<WidgetForumPostStatus> {
             binding?.onBindingDestroy = { _ ->
